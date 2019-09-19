@@ -49,6 +49,10 @@ class ProcessStateEmailMonitor(ProcessStateMonitor):
                         help="SMTP server user name (defaults to nothing)")
         parser.add_option("-p", "--password", dest="smtp_password", default="",
                         help="SMTP server password (defaults to nothing)")
+        parser.add_option("-o", "--port", dest="smtp_port", default="587",
+                        help="SMTP server port (defaults is 587)")
+        parser.add_option("-x", "--mail_type", dest="smtp_type", default="trans",
+                        help="SMTP mail type (defaults is trans)")
         return parser
 
     @classmethod
@@ -94,6 +98,8 @@ class ProcessStateEmailMonitor(ProcessStateMonitor):
         self.smtp_host = kwargs.get('smtp_host', 'localhost')
         self.smtp_user = kwargs.get('smtp_user')
         self.smtp_password = kwargs.get('smtp_password')
+        self.smtp_port = kwargs.get('smtp_port')
+        self.smtp_type = kwargs.get('smtp_type')
         self.digest_len = 76
 
     def send_batch_notification(self):
@@ -128,14 +134,15 @@ From: %(from)s\nSubject: %(subject)s\nBody:\n%(body)s\n" % email_for_log)
         msg['To'] = self.COMMASPACE.join(email['to'])
         msg['Date'] = formatdate()
         msg['Message-ID'] = make_msgid()
+        msg['X-OCT-MAILTYPE'] = email['smtp_type']
 
         try:
-            self.send_smtp(msg, email['to'])
+            self.send_smtp(msg, email['to'], email['smtp_port'])
         except Exception as e:
             self.write_stderr("Error sending email: %s\n" % e)
 
-    def send_smtp(self, mime_msg, to_emails):
-        s = smtplib.SMTP(self.smtp_host)
+    def send_smtp(self, mime_msg, to_emails, port):
+        s = smtplib.SMTP(self.smtp_host, int(port))
         try:
             if self.smtp_user and self.smtp_password:
                 s.login(self.smtp_user,self.smtp_password)
